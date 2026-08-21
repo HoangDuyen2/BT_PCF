@@ -8,8 +8,8 @@
   <Import Project="$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Pcf.props" Condition="Exists('$(PowerAppsTargetsPath)\Microsoft.PowerApps.VisualStudio.Pcf.props')" />
 
   <PropertyGroup>
-    <Name>SourceDemoDataset</Name>
-    <ProjectGuid>f232f36d-9f86-429e-af97-b1e3e3ab1393</ProjectGuid>
+    <Name>SourceDatasetDemo</Name>
+    <ProjectGuid>72dc429a-120e-43af-865b-7f272d28265e</ProjectGuid>
     <OutputPath>$(MSBuildThisFileDirectory)out\controls</OutputPath>
   </PropertyGroup>
 
