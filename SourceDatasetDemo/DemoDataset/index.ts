@@ -1,185 +1,273 @@
 import { initializeIcons } from "@fluentui/react/lib/Icons";
 import * as React from "react";
 import * as ReactDOM from "react-dom/client";
+import { IDropdownOption } from "@fluentui/react/lib/Dropdown";
 import { IInputs, IOutputs } from "./generated/ManifestTypes";
 import { Grid } from "./Grid";
+import { StudentFormData } from "./StudentModal";
 
-// Register icons - but ignore warnings if they have been already registered by Power Apps
 initializeIcons(undefined, { disableWarnings: true });
-export class DemoDataset implements ComponentFramework.StandardControl<IInputs, IOutputs> {
-    notifyOutputChanged: () => void;
-	container: HTMLDivElement;
-	context: ComponentFramework.Context<IInputs>;
-	sortedRecordsIds: string[] = [];
-	resources: ComponentFramework.Resources;
-	isTestHarness: boolean;
-	records: Record<string, ComponentFramework.PropertyHelper.DataSetApi.EntityRecord>;
-	currentPage = 1;
-	isFullScreen = false;
-    root: ReactDOM.Root;
 
-	setSelectedRecords = (ids: string[]): void => {
-		this.context.parameters.records.setSelectedRecordIds(ids);
-	};
+// Logical name của bảng Student trên Dataverse
+const ENTITY_NAME = "ksvc_tra_student";
 
-	onNavigate = (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord): void => {
-		if (item) {
-			this.context.parameters.records.openDatasetItem(item.getNamedReference());
-		}
-	};
+interface OptionSetAttributeMetadata {
+  OptionSet?: Record<string, string>;
+}
 
-	onSort = (name: string, desc: boolean): void => {
-		const sorting = this.context.parameters.records.sorting;
-		while (sorting.length > 0) {
-			sorting.pop();
-		}
-		this.context.parameters.records.sorting.push({
-			name: name,
-			sortDirection: desc ? 1 : 0,
-		});
-		this.context.parameters.records.refresh();
-	};
+export class DemoDataset implements ComponentFramework.StandardControl<
+  IInputs,
+  IOutputs
+> {
+  private notifyOutputChanged: () => void;
+  private container: HTMLDivElement;
+  private context: ComponentFramework.Context<IInputs>;
+  private sortedRecordsIds: string[] = [];
+  private resources: ComponentFramework.Resources;
+  private isTestHarness: boolean;
+  private records: Record<
+    string,
+    ComponentFramework.PropertyHelper.DataSetApi.EntityRecord
+  > = {};
+  private currentPage = 1;
+  private isFullScreen = false;
+  private root: ReactDOM.Root;
 
-	onFilter = (name: string, filter: boolean): void => {
-		const filtering = this.context.parameters.records.filtering;
-		if (filter) {
-			filtering.setFilter({
-				conditions: [
-					{
-						attributeName: name,
-						conditionOperator: 12, // Does not contain Data
-					},
-				],
-			} as ComponentFramework.PropertyHelper.DataSetApi.FilterExpression);
-		} else {
-			filtering.clearFilter();
-		}
-		this.context.parameters.records.refresh();
-	};
+  private genderOptions: IDropdownOption[] = [];
+  private statusOptions: IDropdownOption[] = [];
 
-	loadFirstPage = (): void => {
-		this.currentPage = 1;
-		this.context.parameters.records.paging.loadExactPage(1);
-	};
+  private async loadOptionSetMetadata(
+    attributeName: string,
+  ): Promise<IDropdownOption[]> {
+    try {
+      const metadata = await this.context.utils.getEntityMetadata(ENTITY_NAME, [
+        attributeName,
+      ]);
+      const attr = metadata.Attributes.get(
+        attributeName,
+      ) as unknown as OptionSetAttributeMetadata;
+      if (attr && attr.OptionSet) {
+        return Object.keys(attr.OptionSet).map((key) => ({
+          key: Number(key),
+          text: attr.OptionSet![key],
+        }));
+      }
+    } catch (e) {
+      console.warn(`Không tải được metadata cho trường ${attributeName}:`, e);
+    }
+    return [];
+  }
 
-	loadNextPage = (): void => {
-		this.currentPage++;
-		this.context.parameters.records.paging.loadExactPage(this.currentPage);
-	};
+  private setSelectedRecords = (ids: string[]): void => {
+    this.context.parameters.records.setSelectedRecordIds(ids);
+  };
 
-	loadPreviousPage = (): void => {
-		this.currentPage--;
-		this.context.parameters.records.paging.loadExactPage(this.currentPage);
-	};
+  private onNavigate = (
+    item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
+  ): void => {
+    if (item) {
+      this.context.parameters.records.openDatasetItem(item.getNamedReference());
+    }
+  };
 
-	onFullScreen = (): void => {
-		this.context.mode.setFullScreen(true);
-	};
+  private onSort = (name: string, desc: boolean): void => {
+    const sorting = this.context.parameters.records.sorting;
+    while (sorting.length > 0) {
+      sorting.pop();
+    }
+    this.context.parameters.records.sorting.push({
+      name: name,
+      sortDirection: desc ? 1 : 0,
+    });
+    this.context.parameters.records.refresh();
+  };
 
-	/**
-	 * Used to initialize the control instance. Controls can kick off remote server calls and other initialization actions here.
-	 * Data-set values are not initialized here, use updateView.
-	 * @param context The entire property bag available to control via Context Object; It contains values as set up by the customizer mapped to property names defined in the manifest, as well as utility functions.
-	 * @param notifyOutputChanged A callback method to alert the framework that the control has new outputs ready to be retrieved asynchronously.
-	 * @param state A piece of data that persists in one session for a single user. Can be set at any point in a controls life cycle by calling 'setControlState' in the Mode interface.
-	 * @param container If a control is marked control-type='standard', it will receive an empty div element within which it can render its content.
-	 */
-	public init(
-		context: ComponentFramework.Context<IInputs>,
-		notifyOutputChanged: () => void,
-		state: ComponentFramework.Dictionary,
-		container: HTMLDivElement
-	): void {
-		this.notifyOutputChanged = notifyOutputChanged;
-		this.container = container;
-        this.root = ReactDOM.createRoot(container);
-		this.context = context;
-		this.context.mode.trackContainerResize(true);
-		this.resources = this.context.resources;
-		this.isTestHarness = document.getElementById("control-dimensions") !== null;
-	}
+  private onFilter = (name: string, filter: boolean): void => {
+    const filtering = this.context.parameters.records.filtering;
+    if (filter) {
+      filtering.setFilter({
+        conditions: [
+          {
+            attributeName: name,
+            conditionOperator: 12,
+          },
+        ],
+      } as ComponentFramework.PropertyHelper.DataSetApi.FilterExpression);
+    } else {
+      filtering.clearFilter();
+    }
+    this.context.parameters.records.refresh();
+  };
 
-	/**
-	 * Called when any value in the property bag has changed. This includes field values, data-sets, global values such as container height and width, offline status, control metadata values such as label, visible, etc.
-	 * @param context The entire property bag available to control via Context Object; It contains values as set up by the customizer mapped to names defined in the manifest, as well as utility functions
-	 */
-	public updateView(context: ComponentFramework.Context<IInputs>): void {
-		const dataset = context.parameters.records;
-		const paging = context.parameters.records.paging;
+  private loadFirstPage = (): void => {
+    this.currentPage = 1;
+    this.context.parameters.records.paging.loadExactPage(1);
+  };
 
-		// In MDAs, the initial population of the dataset does not provide updatedProperties
-		const initialLoad = !this.sortedRecordsIds && dataset.sortedRecordIds;
-		const datasetChanged = context.updatedProperties.includes("dataset") || initialLoad;
-		const resetPaging = datasetChanged && !dataset.loading && !dataset.paging.hasPreviousPage && this.currentPage !== 1;
+  private loadNextPage = (): void => {
+    this.currentPage++;
+    this.context.parameters.records.paging.loadExactPage(this.currentPage);
+  };
 
-		if (context.updatedProperties.includes("fullscreen_close")) {
-			this.isFullScreen = false;
-		}
-		if (context.updatedProperties.includes("fullscreen_open")) {
-			this.isFullScreen = true;
-		}
+  private loadPreviousPage = (): void => {
+    this.currentPage--;
+    this.context.parameters.records.paging.loadExactPage(this.currentPage);
+  };
 
-		if (resetPaging) {
-			this.currentPage = 1;
-		}
+  private onFullScreen = (): void => {
+    this.context.mode.setFullScreen(true);
+  };
 
-		if (resetPaging || datasetChanged || this.isTestHarness) {
-			this.records = dataset.records;
-			this.sortedRecordsIds = dataset.sortedRecordIds;
-		}
+  private buildPayload = (
+    data: StudentFormData,
+  ): ComponentFramework.WebApi.Entity => {
+    return {
+      ksvc_slt_studentname: data.fullName,
+      ksvc_slt_studentcode: data.studentCode,
+      ksvc_opt_gender: data.gender,
+      ksvc_dat_birthday: data.birthday
+        ? data.birthday.toISOString().split("T")[0]
+        : null,
+      ksvc_opt_learningstatus: data.learningStatus,
+      ksvc_dcn_gpascore: data.gpaScore,
+      ksvc_int_toltalcredit: data.totalCredit,
+    };
+  };
 
-		// The test harness provides width/height as strings
-		const allocatedWidth = parseInt(context.mode.allocatedWidth as unknown as string);
-		let allocatedHeight = parseInt(context.mode.allocatedHeight as unknown as string);
+  private handleCreateRecord = async (data: StudentFormData): Promise<void> => {
+    try {
+      const payload = this.buildPayload(data);
+      await this.context.webAPI.createRecord(ENTITY_NAME, payload);
+      this.context.parameters.records.refresh();
+    } catch (error) {
+      console.error("Lỗi khi tạo mới record:", error);
+    }
+  };
 
-		// For MDA subgrid support when running on mobile/narrow formfactor
-		if (!this.isFullScreen && context.parameters.SubGridHeight.raw) {
-			allocatedHeight = context.parameters.SubGridHeight.raw;
-		}
+  private handleUpdateRecord = async (
+    id: string,
+    data: StudentFormData,
+  ): Promise<void> => {
+    try {
+      const payload = this.buildPayload(data);
+      await this.context.webAPI.updateRecord(ENTITY_NAME, id, payload);
+      this.context.parameters.records.refresh();
+    } catch (error) {
+      console.error("Lỗi khi cập nhật record:", error);
+    }
+  };
 
-		this.root.render(
-			React.createElement(Grid, {
-				width: allocatedWidth,
-				height: allocatedHeight,
-				columns: dataset.columns,
-				records: this.records,
-				sortedRecordIds: this.sortedRecordsIds,
-				hasNextPage: paging.hasNextPage,
-				hasPreviousPage: paging.hasPreviousPage,
-				currentPage: this.currentPage,
-				totalResultCount: paging.totalResultCount,
-				sorting: dataset.sorting,
-				filtering: dataset.filtering?.getFilter(),
-				resources: this.resources,
-				itemsLoading: dataset.loading,
-				highlightValue: this.context.parameters.HighlightValue.raw,
-				highlightColor: this.context.parameters.HighlightColor.raw,
-				setSelectedRecords: this.setSelectedRecords,
-				onNavigate: this.onNavigate,
-				onSort: this.onSort,
-				onFilter: this.onFilter,
-				loadFirstPage: this.loadFirstPage,
-				loadNextPage: this.loadNextPage,
-				loadPreviousPage: this.loadPreviousPage,
-				isFullScreen: this.isFullScreen,
-				onFullScreen: this.onFullScreen,
-			})
-		);
-	}
+  private handleDeleteRecord = async (id: string): Promise<void> => {
+    try {
+      await this.context.webAPI.deleteRecord(ENTITY_NAME, id);
+      this.context.parameters.records.refresh();
+    } catch (error) {
+      console.error("Lỗi khi xoá record:", error);
+    }
+  };
 
-	/**
-	 * It is called by the framework prior to a control receiving new data.
-	 * @returns an object based on nomenclature defined in manifest, expecting object[s] for property marked as “bound” or “output”
-	 */
-	public getOutputs(): IOutputs {
-		return {} as IOutputs;
-	}
+  public async init(
+    context: ComponentFramework.Context<IInputs>,
+    notifyOutputChanged: () => void,
+    state: ComponentFramework.Dictionary,
+    container: HTMLDivElement,
+  ): Promise<void> {
+    this.notifyOutputChanged = notifyOutputChanged;
+    this.container = container;
+    this.root = ReactDOM.createRoot(container);
+    this.context = context;
+    this.context.mode.trackContainerResize(true);
+    this.resources = this.context.resources;
+    this.isTestHarness = document.getElementById("control-dimensions") !== null;
 
-	/**
-	 * Called when the control is to be removed from the DOM tree. Controls should use this call for cleanup.
-	 * i.e. cancelling any pending remote calls, removing listeners, etc.
-	 */
-	public destroy(): void {
-        this.root.unmount();
-	}
+    this.genderOptions = await this.loadOptionSetMetadata("ksvc_opt_gender");
+    this.statusOptions = await this.loadOptionSetMetadata(
+      "ksvc_opt_learningstatus",
+    );
+
+    if (this.genderOptions.length === 0) {
+      this.genderOptions = [
+        { key: 1, text: "Male" },
+        { key: 2, text: "Female" },
+        { key: 3, text: "Other" },
+      ];
+    }
+    if (this.statusOptions.length === 0) {
+      this.statusOptions = [
+        { key: 1, text: "Enrolled" },
+        { key: 2, text: "Graduated" },
+        { key: 3, text: "Suspended" },
+        { key: 4, text: "Dropped Out" },
+      ];
+    }
+  }
+
+  public updateView(context: ComponentFramework.Context<IInputs>): void {
+    this.context = context;
+    const dataset = context.parameters.records;
+    const paging = dataset.paging;
+
+    if (context.updatedProperties.includes("fullscreen_close")) {
+      this.isFullScreen = false;
+    }
+    if (context.updatedProperties.includes("fullscreen_open")) {
+      this.isFullScreen = true;
+    }
+
+    this.records = dataset.records;
+    this.sortedRecordsIds = dataset.sortedRecordIds || [];
+
+    const allocatedWidth = parseInt(
+      context.mode.allocatedWidth as unknown as string,
+    );
+    let allocatedHeight = parseInt(
+      context.mode.allocatedHeight as unknown as string,
+    );
+
+    if (!this.isFullScreen && context.parameters.SubGridHeight?.raw) {
+      allocatedHeight = context.parameters.SubGridHeight.raw;
+    }
+
+    this.root.render(
+      React.createElement(Grid, {
+        width: allocatedWidth,
+        height: allocatedHeight,
+        columns: dataset.columns,
+        records: this.records,
+        sortedRecordIds: this.sortedRecordsIds,
+        hasNextPage: paging.hasNextPage,
+        hasPreviousPage: paging.hasPreviousPage,
+        currentPage: this.currentPage,
+        totalResultCount: paging.totalResultCount,
+        sorting: dataset.sorting,
+        filtering: dataset.filtering?.getFilter(),
+        resources: this.resources,
+        itemsLoading: dataset.loading,
+        highlightValue: context.parameters.HighlightValue?.raw ?? null,
+        highlightColor: context.parameters.HighlightColor?.raw ?? null,
+        genderOptions: this.genderOptions,
+        learningStatusOptions: this.statusOptions,
+        setSelectedRecords: this.setSelectedRecords,
+        onNavigate: this.onNavigate,
+        onSort: this.onSort,
+        onFilter: this.onFilter,
+        loadFirstPage: this.loadFirstPage,
+        loadNextPage: this.loadNextPage,
+        loadPreviousPage: this.loadPreviousPage,
+        isFullScreen: this.isFullScreen,
+        onFullScreen: this.onFullScreen,
+        onCreateRecord: this.handleCreateRecord,
+        onUpdateRecord: this.handleUpdateRecord,
+        onDeleteRecord: this.handleDeleteRecord,
+      }),
+    );
+  }
+
+  public getOutputs(): IOutputs {
+    return {} as IOutputs;
+  }
+
+  public destroy(): void {
+    this.root.unmount();
+  }
 }
