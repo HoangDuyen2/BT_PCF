@@ -10,6 +10,7 @@ export interface StudentFormData {
 	id?: string;
 	studentCode?: string;
 	fullName: string;
+	classId?: string;
 	gender?: number;
 	birthday?: Date | null;
 	learningStatus?: number;
@@ -17,12 +18,12 @@ export interface StudentFormData {
 	totalCredit?: number;
 }
 
-// Bổ sung đầy đủ genderOptions và learningStatusOptions vào interface
 export interface StudentModalProps {
 	isOpen: boolean;
 	title: string;
 	isEdit: boolean;
 	initialData?: StudentFormData | null;
+	classOptions: IDropdownOption[];
 	genderOptions: IDropdownOption[];
 	learningStatusOptions: IDropdownOption[];
 	onDismiss: () => void;
@@ -34,6 +35,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 	title,
 	isEdit,
 	initialData,
+	classOptions,
 	genderOptions,
 	learningStatusOptions,
 	onDismiss,
@@ -42,6 +44,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 	const [formData, setFormData] = React.useState<StudentFormData>({
 		fullName: "",
 		studentCode: "",
+		classId: undefined,
 		gender: undefined,
 		birthday: null,
 		learningStatus: undefined,
@@ -56,6 +59,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 			setFormData({
 				fullName: "",
 				studentCode: "",
+				classId: undefined,
 				gender: undefined,
 				birthday: null,
 				learningStatus: undefined,
@@ -67,7 +71,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onDismiss={onDismiss} isBlocking={false}>
-			<Stack tokens={{ childrenGap: 12 }} style={{ padding: 24, minWidth: 420, maxWidth: 500 }}>
+			<Stack tokens={{ childrenGap: 12 }} style={{ padding: 24, minWidth: 720, maxWidth: 800, maxHeight: "90vh", overflowY: "auto" }}>
 				<h2>{title}</h2>
 
 				<TextField
@@ -85,6 +89,15 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 				/>
 
 				<Dropdown
+					label="Class"
+					required
+					placeholder="Chọn lớp"
+					options={classOptions}
+					selectedKey={formData.classId}
+					onChange={(_, opt) => setFormData({ ...formData, classId: opt?.key as string })}
+				/>
+
+				<Dropdown
 					label="Gender"
 					options={genderOptions}
 					selectedKey={formData.gender}
@@ -96,6 +109,13 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 					strings={defaultDatePickerStrings}
 					value={formData.birthday ?? undefined}
 					onSelectDate={(date) => setFormData({ ...formData, birthday: date })}
+					formatDate={(date) => {
+						if (!date) return "";
+						const year = date.getFullYear();
+						const month = (date.getMonth() + 1).toString().padStart(2, "0");
+						const day = date.getDate().toString().padStart(2, "0");
+						return `${year}-${month}-${day}`;
+					}}
 				/>
 
 				<Dropdown
@@ -128,3 +148,4 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 		</Modal>
 	);
 };
+
