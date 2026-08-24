@@ -121,15 +121,27 @@ export const Grid = React.memo((props: GridProps) => {
 				studentCode: (record.getValue("ksvc_slt_studentcode") as string) || "",
 				fullName: (record.getValue("ksvc_slt_studentname") as string) || "",
 				classId: rawClass?.id?.guid || (rawClass?.id as unknown as string) || undefined,
-				gender: (record.getValue("ksvc_opt_gender") as number) || undefined,
+				gender: parseOptionSetValue(record, "ksvc_opt_gender"),
 				birthday: rawBirthday ? new Date(rawBirthday) : null,
-				learningStatus: (record.getValue("ksvc_opt_learningstatus") as number) || undefined,
+				learningStatus: parseOptionSetValue(record, "ksvc_opt_learningstatus"),
 				gpaScore: (record.getValue("ksvc_dcn_gpascore") as number) ?? 0,
 				totalCredit: (record.getValue("ksvc_int_toltalcredit") as number) ?? 0,
 			};
 		},
 		[records]
 	);
+
+	const parseOptionSetValue = (
+		record: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
+		fieldName: string
+	): number | undefined => {
+		const rawVal = record.getValue(fieldName);
+		if (rawVal !== null && rawVal !== undefined && rawVal !== "") {
+			const parsed = Number(rawVal);
+			if (!isNaN(parsed)) return parsed;
+		}
+		return undefined;
+	};
 
 	const handleOpenNew = React.useCallback(() => {
 		setModalMode("new");
@@ -309,15 +321,20 @@ export const Grid = React.memo((props: GridProps) => {
 						disabled={currentPage === 1 || isComponentLoading || itemsLoading}
 						onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
 					/>
-					{Array.from({ length: totalPages }, (_, index) => index + 1).map((i) => (
-						<IconButton
-							key={i}
-							text={String(i)}
-							title={`Page ${i}`}
-							disabled={isComponentLoading || itemsLoading}
-							onClick={() => setCurrentPage(i)}
-						/>
-					))}
+					{Array.from({ length: totalPages }, (_, index) => index + 1)
+						.map((i) => {
+							console.log("Page number:", i);
+							return (
+							<IconButton
+								key={i}
+								text={String(i)}
+								title={`Page ${i}`}
+								disabled={isComponentLoading || itemsLoading}
+								onClick={() => setCurrentPage(i)}
+							/>
+							);
+						})
+					}
 					<IconButton
 						iconProps={{ iconName: "Next" }}
 						title="Next Page"

@@ -76,11 +76,10 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 		<Modal isOpen={isOpen} onDismiss={onDismiss} isBlocking={false}>
 			<Stack tokens={{ childrenGap: 12 }} style={{ padding: 24, minWidth: 420, maxWidth: 500 }}>
 				<h2>{title}</h2>
-
 				<TextField
 					label="Student Code"
 					value={formData.studentCode || ""}
-					disabled={isCodeDisabled}
+					disabled={true}
 					onChange={(_, val) => setFormData({ ...formData, studentCode: val || "" })}
 				/>
 
@@ -106,7 +105,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 					label="Gender"
 					disabled={isReadOnly}
 					options={genderOptions}
-					selectedKey={formData.gender}
+					selectedKey={(formData.gender as number) ?? undefined}
 					onChange={(_, opt) => setFormData({ ...formData, gender: opt?.key as number })}
 				/>
 
@@ -130,7 +129,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 					required
 					disabled={isReadOnly}
 					options={learningStatusOptions}
-					selectedKey={formData.learningStatus}
+					selectedKey={(formData.learningStatus as number) ?? undefined}
 					onChange={(_, opt) => setFormData({ ...formData, learningStatus: opt?.key as number })}
 				/>
 
@@ -138,16 +137,16 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 					label="GPA Score"
 					type="number"
 					disabled={isReadOnly}
-					value={formData.gpaScore !== undefined ? formData.gpaScore.toString() : "0"}
-					onChange={(_, val) => setFormData({ ...formData, gpaScore: parseFloat(val || "0") })}
+					value={formData.gpaScore !== undefined && formData.gpaScore !== null ? String(formData.gpaScore) : ""}
+					onChange={(_, val) => setFormData({ ...formData, gpaScore: val === "" ? undefined : parseFloat(val || "0") })}
 				/>
 
 				<TextField
 					label="Total Credit"
 					type="number"
 					disabled={isReadOnly}
-					value={formData.totalCredit !== undefined ? formData.totalCredit.toString() : "0"}
-					onChange={(_, val) => setFormData({ ...formData, totalCredit: parseInt(val || "0", 10) })}
+					value={formData.totalCredit !== undefined && formData.totalCredit !== null ? String(formData.totalCredit) : ""}
+					onChange={(_, val) => setFormData({ ...formData, totalCredit: val === "" ? undefined : parseInt(val || "0", 10) })}
 				/>
 
 				<Stack horizontal tokens={{ childrenGap: 10 }} horizontalAlign="end" style={{ marginTop: 15 }}>
