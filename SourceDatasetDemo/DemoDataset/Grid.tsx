@@ -5,20 +5,15 @@ import {
 	ConstrainMode,
 	DetailsList,
 	DetailsListLayoutMode,
-	DetailsRow,
 	IColumn,
 	IDetailsHeaderProps,
-	IDetailsListProps,
-	IDetailsRowStyles,
 } from "@fluentui/react/lib/DetailsList";
 import { Sticky, StickyPositionType } from "@fluentui/react/lib/Sticky";
-import { ContextualMenu, DirectionalHint, IContextualMenuProps } from "@fluentui/react/lib/ContextualMenu";
 import { ScrollablePane, ScrollbarVisibility } from "@fluentui/react/lib/ScrollablePane";
 import { Stack } from "@fluentui/react/lib/Stack";
 import { Overlay } from "@fluentui/react/lib/Overlay";
-import { IconButton, PrimaryButton, DefaultButton } from "@fluentui/react/lib/Button";
+import { IconButton, PrimaryButton } from "@fluentui/react/lib/Button";
 import { Selection } from "@fluentui/react/lib/Selection";
-import { Link } from "@fluentui/react/lib/Link";
 import { Icon } from "@fluentui/react/lib/Icon";
 import { Text } from "@fluentui/react/lib/Text";
 import { IDropdownOption } from "@fluentui/react/lib/Dropdown";
@@ -26,12 +21,7 @@ import { StudentModal, StudentFormData } from "./StudentModal";
 
 type DataSet = ComponentFramework.PropertyHelper.DataSetApi.EntityRecord & IObjectWithKey;
 
-function stringFormat(template: string, ...args: string[]): string {
-	args?.forEach((arg, index) => {
-		template = template.replace(`{${index}}`, arg);
-	});
-	return template;
-}
+const PAGE_SIZE = 5;
 
 export interface GridProps {
 	width?: number;
@@ -39,13 +29,6 @@ export interface GridProps {
 	columns: ComponentFramework.PropertyHelper.DataSetApi.Column[];
 	records: Record<string, ComponentFramework.PropertyHelper.DataSetApi.EntityRecord>;
 	sortedRecordIds: string[];
-	hasNextPage: boolean;
-	hasPreviousPage: boolean;
-	totalResultCount: number;
-	currentPage: number;
-	sorting: ComponentFramework.PropertyHelper.DataSetApi.SortStatus[];
-	filtering: ComponentFramework.PropertyHelper.DataSetApi.FilterExpression;
-	resources: ComponentFramework.Resources;
 	itemsLoading: boolean;
 	highlightValue: string | null;
 	highlightColor: string | null;
@@ -54,13 +37,6 @@ export interface GridProps {
 	learningStatusOptions: IDropdownOption[];
 	setSelectedRecords: (ids: string[]) => void;
 	onNavigate: (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord) => void;
-	onSort: (name: string, desc: boolean) => void;
-	onFilter: (name: string, filtered: boolean) => void;
-	loadFirstPage: () => void;
-	loadNextPage: () => void;
-	loadPreviousPage: () => void;
-	onFullScreen: () => void;
-	isFullScreen: boolean;
 	onCreateRecord: (data: StudentFormData) => Promise<void>;
 	onUpdateRecord: (id: string, data: StudentFormData) => Promise<void>;
 	onDeleteRecord: (id: string) => Promise<void>;
@@ -77,17 +53,6 @@ const onRenderDetailsHeader: IRenderFunction<IDetailsHeaderProps> = (props, defa
 	return null;
 };
 
-const onRenderItemColumn = (
-	item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
-	index?: number,
-	column?: IColumn
-) => {
-	if (column?.fieldName && item) {
-		return <>{item.getFormattedValue(column.fieldName)}</>;
-	}
-	return <></>;
-};
-
 export const Grid = React.memo((props: GridProps) => {
 	const {
 		records,
@@ -95,28 +60,12 @@ export const Grid = React.memo((props: GridProps) => {
 		columns,
 		width,
 		height,
-		hasNextPage,
-		hasPreviousPage,
-		sorting,
-		filtering,
-		currentPage,
 		itemsLoading,
 		classOptions,
 		genderOptions,
 		learningStatusOptions,
 		setSelectedRecords,
 		onNavigate,
-		onSort,
-		onFilter,
-		resources,
-		loadFirstPage,
-		loadNextPage,
-		loadPreviousPage,
-		onFullScreen,
-		isFullScreen,
-		highlightValue,
-		highlightColor,
-		totalResultCount,
 		onCreateRecord,
 		onUpdateRecord,
 		onDeleteRecord,
@@ -124,21 +73,18 @@ export const Grid = React.memo((props: GridProps) => {
 
 	const forceUpdate = useForceUpdate();
 	const [isComponentLoading, setIsLoading] = React.useState<boolean>(false);
-	const [contextualMenuProps, setContextualMenuProps] = React.useState<IContextualMenuProps>();
+	const [currentPage, setCurrentPage] = React.useState<number>(1);
 
-	const [selectedId, setSelectedId] = React.useState<string | null>(null);
 	const [modalOpen, setModalOpen] = React.useState<boolean>(false);
-	const [modalMode, setModalMode] = React.useState<"new" | "edit">("new");
+	const [modalMode, setModalMode] = React.useState<"new" | "edit" | "view">("new");
 	const [editingData, setEditingData] = React.useState<StudentFormData | null>(null);
 
 	const onSelectionChanged = React.useCallback(() => {
 		const selectedIndices = selection.getSelectedIndices();
 		if (selectedIndices.length > 0) {
 			const currentId = sortedRecordIds[selectedIndices[0]];
-			setSelectedId(currentId);
 			setSelectedRecords([currentId]);
 		} else {
-			setSelectedId(null);
 			setSelectedRecords([]);
 		}
 		forceUpdate();
@@ -151,124 +97,163 @@ export const Grid = React.memo((props: GridProps) => {
 		});
 	});
 
-	const onContextualMenuDismissed = React.useCallback(() => {
-		setContextualMenuProps(undefined);
-	}, []);
+	// Phân trang
+	const totalPages = Math.ceil(sortedRecordIds.length / PAGE_SIZE) || 1;
+
+	const pagedRecordIds = React.useMemo(() => {
+		const startIndex = (currentPage - 1) * PAGE_SIZE;
+		return sortedRecordIds.slice(startIndex, startIndex + PAGE_SIZE);
+	}, [sortedRecordIds, currentPage]);
 
 	const items: (DataSet | undefined)[] = React.useMemo(() => {
 		setIsLoading(false);
-		return sortedRecordIds.map((id) => records[id]);
-	}, [records, sortedRecordIds]);
+		return pagedRecordIds.map((id) => records[id]);
+	}, [records, pagedRecordIds]);
 
-	const getContextualMenuProps = React.useCallback(
-		(column: IColumn, ev: React.MouseEvent<HTMLElement>): IContextualMenuProps => {
-			const menuItems = [
-				{
-					key: "aToZ",
-					name: resources.getString("Label_SortAZ"),
-					iconProps: { iconName: "SortUp" },
-					canCheck: true,
-					checked: column.isSorted && !column.isSortedDescending,
-					disable: (column.data as ComponentFramework.PropertyHelper.DataSetApi.Column).disableSorting,
-					onClick: () => {
-						onSort(column.key, false);
-						setContextualMenuProps(undefined);
-						if (items && items.length > 0) setIsLoading(true);
-					},
-				},
-				{
-					key: "zToA",
-					name: resources.getString("Label_SortZA"),
-					iconProps: { iconName: "SortDown" },
-					canCheck: true,
-					checked: column.isSorted && column.isSortedDescending,
-					disable: (column.data as ComponentFramework.PropertyHelper.DataSetApi.Column).disableSorting,
-					onClick: () => {
-						onSort(column.key, true);
-						setContextualMenuProps(undefined);
-						if (items && items.length > 0) setIsLoading(true);
-					},
-				},
-				{
-					key: "filter",
-					name: resources.getString("Label_DoesNotContainData"),
-					iconProps: { iconName: "Filter" },
-					canCheck: true,
-					checked: column.isFiltered,
-					onClick: () => {
-						onFilter(column.key, column.isFiltered !== true);
-						setContextualMenuProps(undefined);
-						setIsLoading(true);
-					},
-				},
-			];
+	const getStudentFormData = React.useCallback(
+		(recordId: string): StudentFormData => {
+			const record = records[recordId];
+			const rawBirthday = (record.getValue("ksvc_dat_birthday") as string) || null;
+			const rawClass = record.getValue("ksvc_lup_class") as ComponentFramework.EntityReference | undefined;
+
 			return {
-				items: menuItems,
-				target: ev.currentTarget as HTMLElement,
-				directionalHint: DirectionalHint.bottomLeftEdge,
-				gapSpace: 10,
-				isBeakVisible: true,
-				onDismiss: onContextualMenuDismissed,
+				id: recordId,
+				studentCode: (record.getValue("ksvc_slt_studentcode") as string) || "",
+				fullName: (record.getValue("ksvc_slt_studentname") as string) || "",
+				classId: rawClass?.id?.guid || (rawClass?.id as unknown as string) || undefined,
+				gender: (record.getValue("ksvc_opt_gender") as number) || undefined,
+				birthday: rawBirthday ? new Date(rawBirthday) : null,
+				learningStatus: (record.getValue("ksvc_opt_learningstatus") as number) || undefined,
+				gpaScore: (record.getValue("ksvc_dcn_gpascore") as number) ?? 0,
+				totalCredit: (record.getValue("ksvc_int_toltalcredit") as number) ?? 0,
 			};
 		},
-		[resources, onSort, onFilter, onContextualMenuDismissed, items]
+		[records]
 	);
 
-	const onColumnContextMenu = React.useCallback(
-		(column?: IColumn, ev?: React.MouseEvent<HTMLElement>) => {
-			if (column && ev) {
-				setContextualMenuProps(getContextualMenuProps(column, ev));
+	const handleOpenNew = React.useCallback(() => {
+		setModalMode("new");
+		setEditingData(null);
+		setModalOpen(true);
+	}, []);
+
+	const handleOpenEdit = React.useCallback(
+		(id: string) => {
+			setModalMode("edit");
+			setEditingData(getStudentFormData(id));
+			setModalOpen(true);
+		},
+		[getStudentFormData]
+	);
+
+	const handleOpenView = React.useCallback(
+		(id: string) => {
+			setModalMode("view");
+			setEditingData(getStudentFormData(id));
+			setModalOpen(true);
+		},
+		[getStudentFormData]
+	);
+
+	const handleDelete = React.useCallback(
+		async (id: string) => {
+			if (confirm("Bạn có chắc chắn muốn xoá bản ghi này?")) {
+				setIsLoading(true);
+				await onDeleteRecord(id);
+				selection.setAllSelected(false);
+				setIsLoading(false);
 			}
 		},
-		[getContextualMenuProps]
+		[onDeleteRecord, selection]
 	);
 
-	const onColumnClick = React.useCallback(
-		(ev: React.MouseEvent<HTMLElement>, column: IColumn) => {
-			if (column && ev) {
-				setContextualMenuProps(getContextualMenuProps(column, ev));
+	const handleSave = React.useCallback(
+		async (data: StudentFormData) => {
+			setIsLoading(true);
+			if (modalMode === "new") {
+				await onCreateRecord(data);
+			} else if (modalMode === "edit" && editingData?.id) {
+				await onUpdateRecord(editingData.id, data);
 			}
+			setModalOpen(false);
+			setIsLoading(false);
 		},
-		[getContextualMenuProps]
+		[modalMode, editingData, onCreateRecord, onUpdateRecord]
 	);
 
-	const onNextPage = React.useCallback(() => {
-		setIsLoading(true);
-		loadNextPage();
-	}, [loadNextPage]);
-
-	const onPreviousPage = React.useCallback(() => {
-		setIsLoading(true);
-		loadPreviousPage();
-	}, [loadPreviousPage]);
-
-	const onFirstPage = React.useCallback(() => {
-		setIsLoading(true);
-		loadFirstPage();
-	}, [loadFirstPage]);
-
-	const gridColumns = React.useMemo(() => {
-		return columns
+	const gridColumns: IColumn[] = React.useMemo(() => {
+		const dataCols: IColumn[] = columns
 			.filter((col) => !col.isHidden && col.order >= 0)
 			.sort((a, b) => a.order - b.order)
-			.map((col) => {
-				const sortOn = sorting?.find((s) => s.name === col.name);
-				const filtered = filtering?.conditions?.find((f) => f.attributeName === col.name);
-				return {
-					key: col.name,
-					name: col.displayName,
-					fieldName: col.name,
-					isSorted: sortOn != null,
-					isSortedDescending: sortOn?.sortDirection === 1,
-					isResizable: true,
-					isFiltered: filtered != null,
-					data: col,
-					minWidth: col.visualSizeFactor > 100 ? col.visualSizeFactor : 100,
-					onColumnContextMenu: onColumnContextMenu,
-					onColumnClick: onColumnClick,
-				} as IColumn;
-			});
-	}, [columns, sorting, filtering, onColumnContextMenu, onColumnClick]);
+			.map((col) => ({
+				key: col.name,
+				name: col.displayName,
+				fieldName: col.name,
+				minWidth: col.visualSizeFactor > 100 ? col.visualSizeFactor : 100,
+				isResizable: true,
+			}));
+
+		// Cột Action chứa nút View, Edit, Delete
+		const actionCol: IColumn = {
+			key: "actions",
+			name: "Actions",
+			minWidth: 120,
+			maxWidth: 140,
+			isResizable: false,
+			onRender: (item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord) => {
+				if (!item) return null;
+				const id = item.getRecordId();
+				return (
+					<Stack horizontal tokens={{ childrenGap: 4 }}>
+						<IconButton
+							iconProps={{ iconName: "View" }}
+							title="View"
+							ariaLabel="View"
+							onClick={(e) => {
+								e.stopPropagation();
+								handleOpenView(id);
+							}}
+						/>
+						<IconButton
+							iconProps={{ iconName: "Edit" }}
+							title="Edit"
+							ariaLabel="Edit"
+							onClick={(e) => {
+								e.stopPropagation();
+								handleOpenEdit(id);
+							}}
+						/>
+						<IconButton
+							iconProps={{ iconName: "Delete" }}
+							title="Delete"
+							ariaLabel="Delete"
+							onClick={(e) => {
+								e.stopPropagation();
+								void handleDelete(id);
+							}}
+						/>
+					</Stack>
+				);
+			},
+		};
+
+		return [...dataCols, actionCol];
+	}, [columns, handleOpenView, handleOpenEdit, handleDelete]);
+
+	const onRenderItemColumn = (
+		item?: ComponentFramework.PropertyHelper.DataSetApi.EntityRecord,
+		index?: number,
+		column?: IColumn
+	) => {
+		if (!item || !column) return null;
+		if (column.key === "actions" && column.onRender) {
+			return column.onRender(item, index, column);
+		}
+		if (column.fieldName) {
+			return <>{item.getFormattedValue(column.fieldName)}</>;
+		}
+		return null;
+	};
 
 	const rootContainerStyle: React.CSSProperties = React.useMemo(() => {
 		return {
@@ -277,86 +262,17 @@ export const Grid = React.memo((props: GridProps) => {
 		};
 	}, [width, height]);
 
-	const onRenderRow: IDetailsListProps["onRenderRow"] = (props) => {
-		const customStyles: Partial<IDetailsRowStyles> = {};
-
-		if (props?.item) {
-			if (highlightColor && highlightValue && props.item.getValue("HighlightIndicator") === highlightValue) {
-				customStyles.root = { backgroundColor: highlightColor };
-			}
-			return <DetailsRow {...props} styles={customStyles} />;
-		}
-
-		return null;
-	};
-
-	const handleOpenNew = React.useCallback(() => {
-		setModalMode("new");
-		setEditingData(null);
-		setModalOpen(true);
-	}, []);
-
-	const handleOpenEdit = React.useCallback(() => {
-		if (!selectedId) return;
-		const record = records[selectedId];
-		setModalMode("edit");
-
-		const rawBirthday = (record.getValue("ksvc_dat_birthday") as string) || null;
-
-		// Lấy EntityReference của Lookup Class nếu có
-		const rawClass = record.getValue("ksvc_lup_class") as ComponentFramework.EntityReference | undefined;
-
-		setEditingData({
-			id: selectedId,
-			studentCode: (record.getValue("ksvc_slt_studentcode") as string) || "",
-			fullName: (record.getValue("ksvc_slt_studentname") as string) || "",
-			classId: rawClass?.id?.guid || (rawClass?.id as unknown as string) || undefined,
-			gender: (record.getValue("ksvc_opt_gender") as number) || undefined,
-			birthday: rawBirthday ? new Date(rawBirthday) : null,
-			learningStatus: (record.getValue("ksvc_opt_learningstatus") as number) || undefined,
-			gpaScore: (record.getValue("ksvc_dcn_gpascore") as number) ?? 0,
-			totalCredit: (record.getValue("ksvc_int_toltalcredit") as number) ?? 0,
-		});
-		setModalOpen(true);
-	}, [selectedId, records]);
-
-	const handleDelete = React.useCallback(async () => {
-		if (selectedId && confirm("Bạn có chắc chắn muốn xoá bản ghi sinh viên này?")) {
-			setIsLoading(true);
-			await onDeleteRecord(selectedId);
-			setSelectedId(null);
-			selection.setAllSelected(false);
-			setIsLoading(false);
-		}
-	}, [selectedId, onDeleteRecord, selection]);
-
-	const handleSave = React.useCallback(
-		async (data: StudentFormData) => {
-			setIsLoading(true);
-			if (modalMode === "new") {
-				await onCreateRecord(data);
-			} else if (modalMode === "edit" && selectedId) {
-				await onUpdateRecord(selectedId, data);
-			}
-			setModalOpen(false);
-			setIsLoading(false);
-		},
-		[modalMode, selectedId, onCreateRecord, onUpdateRecord]
-	);
-
 	return (
 		<Stack verticalFill grow style={rootContainerStyle}>
-			<Stack horizontal tokens={{ childrenGap: 8 }} style={{ padding: "6px 8px", background: "#f3f2f1", borderBottom: "1px solid #e1dfdd" }}>
+			<Stack horizontal style={{ padding: "6px 8px", background: "#f3f2f1", borderBottom: "1px solid #e1dfdd" }}>
 				<PrimaryButton iconProps={{ iconName: "Add" }} text="New" onClick={handleOpenNew} />
-				<DefaultButton iconProps={{ iconName: "Edit" }} text="Edit" disabled={!selectedId} onClick={handleOpenEdit} />
-				<DefaultButton iconProps={{ iconName: "Delete" }} text="Delete" disabled={!selectedId} onClick={handleDelete} />
 			</Stack>
 
 			<Stack.Item grow style={{ position: "relative", backgroundColor: "white", zIndex: 0 }}>
-				{!itemsLoading && !isComponentLoading && items && items.length === 0 && (
-					<Stack grow horizontalAlign="center" className="noRecords">
+				{!itemsLoading && !isComponentLoading && items.length === 0 && (
+					<Stack grow horizontalAlign="center" style={{ position: "absolute", width: "100%", top: 80, fontSize: "200%" }}>
 						<Icon iconName="PageList" />
-						<Text variant="large">{resources.getString("Label_NoRecords")}</Text>
+						<Text variant="large">No records found</Text>
 					</Stack>
 				)}
 				<ScrollablePane scrollbarVisibility={ScrollbarVisibility.auto}>
@@ -365,64 +281,62 @@ export const Grid = React.memo((props: GridProps) => {
 						onRenderItemColumn={onRenderItemColumn}
 						onRenderDetailsHeader={onRenderDetailsHeader}
 						items={items}
-						setKey={`set${currentPage}`}
-						initialFocusedIndex={0}
-						checkButtonAriaLabel="select row"
-						layoutMode={DetailsListLayoutMode.fixedColumns}
-						constrainMode={ConstrainMode.unconstrained}
+						setKey={`page_${currentPage}`}
 						selectionMode={SelectionMode.single}
 						selection={selection}
 						onItemInvoked={onNavigate}
-						onRenderRow={onRenderRow}
+						layoutMode={DetailsListLayoutMode.fixedColumns}
+						constrainMode={ConstrainMode.unconstrained}
 					/>
-					{contextualMenuProps && <ContextualMenu {...contextualMenuProps} />}
 				</ScrollablePane>
 				{(itemsLoading || isComponentLoading) && <Overlay />}
 			</Stack.Item>
 			<Stack.Item>
-				<Stack horizontal style={{ width: "100%", paddingLeft: 8, paddingRight: 8 }}>
-					<Stack.Item align="center">
-						{stringFormat(
-							resources.getString("Label_Grid_Footer_RecordCount"),
-							totalResultCount === -1 ? "5000+" : totalResultCount.toString(),
-							selection.getSelectedCount().toString()
-						)}
-					</Stack.Item>
-					<Stack.Item grow align="center" style={{ textAlign: "center" }}>
-						{!isFullScreen && <Link onClick={onFullScreen}>{resources.getString("Label_ShowFullScreen")}</Link>}
-					</Stack.Item>
+				<Text>{`Total records: ${sortedRecordIds.length} records`}</Text>
+			</Stack.Item>
+			{/* Thanh điều khiển phân trang*/}
+			<Stack.Item>
+				<Stack horizontal horizontalAlign="center" verticalAlign="center" tokens={{ childrenGap: 10 }} style={{ padding: 8, borderTop: "1px solid #e1dfdd" }}>
 					<IconButton
-						alt="First Page"
 						iconProps={{ iconName: "Rewind" }}
-						disabled={!hasPreviousPage || isComponentLoading || itemsLoading}
-						onClick={onFirstPage}
+						title="First Page"
+						disabled={currentPage === 1 || isComponentLoading || itemsLoading}
+						onClick={() => setCurrentPage(1)}
 					/>
 					<IconButton
-						alt="Previous Page"
 						iconProps={{ iconName: "Previous" }}
-						disabled={!hasPreviousPage || isComponentLoading || itemsLoading}
-						onClick={onPreviousPage}
+						title="Previous Page"
+						disabled={currentPage === 1 || isComponentLoading || itemsLoading}
+						onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
 					/>
-					<Stack.Item align="center">
-						{stringFormat(
-							resources.getString("Label_Grid_Footer"),
-							currentPage.toString(),
-							selection.getSelectedCount().toString()
-						)}
-					</Stack.Item>
+					{Array.from({ length: totalPages }, (_, index) => index + 1).map((i) => (
+						<IconButton
+							key={i}
+							text={String(i)}
+							title={`Page ${i}`}
+							disabled={isComponentLoading || itemsLoading}
+							onClick={() => setCurrentPage(i)}
+						/>
+					))}
 					<IconButton
-						alt="Next Page"
 						iconProps={{ iconName: "Next" }}
-						disabled={!hasNextPage || isComponentLoading || itemsLoading}
-						onClick={onNextPage}
+						title="Next Page"
+						disabled={currentPage >= totalPages || isComponentLoading || itemsLoading}
+						onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+					/>
+					<IconButton
+						iconProps={{ iconName: "FastForward" }}
+						title="Last Page"
+						disabled={currentPage >= totalPages || isComponentLoading || itemsLoading}
+						onClick={() => setCurrentPage(totalPages)}
 					/>
 				</Stack>
 			</Stack.Item>
 
 			<StudentModal
 				isOpen={modalOpen}
-				title={modalMode === "new" ? "Thêm mới Student" : "Cập nhật Student"}
-				isEdit={modalMode === "edit"}
+				title={modalMode === "new" ? "Thêm mới Student" : modalMode === "edit" ? "Cập nhật Student" : "Chi tiết Student"}
+				mode={modalMode}
 				initialData={editingData}
 				classOptions={classOptions}
 				genderOptions={genderOptions}

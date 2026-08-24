@@ -21,7 +21,7 @@ export interface StudentFormData {
 export interface StudentModalProps {
 	isOpen: boolean;
 	title: string;
-	isEdit: boolean;
+	mode: "new" | "edit" | "view";
 	initialData?: StudentFormData | null;
 	classOptions: IDropdownOption[];
 	genderOptions: IDropdownOption[];
@@ -33,7 +33,7 @@ export interface StudentModalProps {
 export const StudentModal: React.FC<StudentModalProps> = ({
 	isOpen,
 	title,
-	isEdit,
+	mode,
 	initialData,
 	classOptions,
 	genderOptions,
@@ -41,6 +41,9 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 	onDismiss,
 	onSave,
 }) => {
+	const isReadOnly = mode === "view";
+	const isCodeDisabled = mode === "edit" || isReadOnly;
+
 	const [formData, setFormData] = React.useState<StudentFormData>({
 		fullName: "",
 		studentCode: "",
@@ -71,19 +74,20 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 
 	return (
 		<Modal isOpen={isOpen} onDismiss={onDismiss} isBlocking={false}>
-			<Stack tokens={{ childrenGap: 12 }} style={{ padding: 24, minWidth: 720, maxWidth: 800, maxHeight: "90vh", overflowY: "auto" }}>
+			<Stack tokens={{ childrenGap: 12 }} style={{ padding: 24, minWidth: 420, maxWidth: 500 }}>
 				<h2>{title}</h2>
 
 				<TextField
 					label="Student Code"
 					value={formData.studentCode || ""}
-					disabled={isEdit}
+					disabled={isCodeDisabled}
 					onChange={(_, val) => setFormData({ ...formData, studentCode: val || "" })}
 				/>
 
 				<TextField
 					label="Full Name"
 					required
+					disabled={isReadOnly}
 					value={formData.fullName}
 					onChange={(_, val) => setFormData({ ...formData, fullName: val || "" })}
 				/>
@@ -91,6 +95,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 				<Dropdown
 					label="Class"
 					required
+					disabled={isReadOnly}
 					placeholder="Chọn lớp"
 					options={classOptions}
 					selectedKey={formData.classId}
@@ -99,6 +104,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 
 				<Dropdown
 					label="Gender"
+					disabled={isReadOnly}
 					options={genderOptions}
 					selectedKey={formData.gender}
 					onChange={(_, opt) => setFormData({ ...formData, gender: opt?.key as number })}
@@ -106,6 +112,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 
 				<DatePicker
 					label="Birthday"
+					disabled={isReadOnly}
 					strings={defaultDatePickerStrings}
 					value={formData.birthday ?? undefined}
 					onSelectDate={(date) => setFormData({ ...formData, birthday: date })}
@@ -121,6 +128,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 				<Dropdown
 					label="Learning Status"
 					required
+					disabled={isReadOnly}
 					options={learningStatusOptions}
 					selectedKey={formData.learningStatus}
 					onChange={(_, opt) => setFormData({ ...formData, learningStatus: opt?.key as number })}
@@ -129,6 +137,7 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 				<TextField
 					label="GPA Score"
 					type="number"
+					disabled={isReadOnly}
 					value={formData.gpaScore !== undefined ? formData.gpaScore.toString() : "0"}
 					onChange={(_, val) => setFormData({ ...formData, gpaScore: parseFloat(val || "0") })}
 				/>
@@ -136,16 +145,16 @@ export const StudentModal: React.FC<StudentModalProps> = ({
 				<TextField
 					label="Total Credit"
 					type="number"
+					disabled={isReadOnly}
 					value={formData.totalCredit !== undefined ? formData.totalCredit.toString() : "0"}
 					onChange={(_, val) => setFormData({ ...formData, totalCredit: parseInt(val || "0", 10) })}
 				/>
 
 				<Stack horizontal tokens={{ childrenGap: 10 }} horizontalAlign="end" style={{ marginTop: 15 }}>
-					<PrimaryButton text="Save" onClick={() => void onSave(formData)} />
-					<DefaultButton text="Cancel" onClick={onDismiss} />
+					{!isReadOnly && <PrimaryButton text="Save" onClick={() => void onSave(formData)} />}
+					<DefaultButton text={isReadOnly ? "Close" : "Cancel"} onClick={onDismiss} />
 				</Stack>
 			</Stack>
 		</Modal>
 	);
 };
-
