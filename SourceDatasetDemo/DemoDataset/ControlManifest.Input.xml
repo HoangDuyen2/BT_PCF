@@ -18,6 +18,7 @@
 		</resources>
 		<feature-usage>
       		<uses-feature name="WebAPI" required="true" />
+			<uses-feature name="Utility" required="true" />
     	</feature-usage>
 	</control>
 </manifest>
