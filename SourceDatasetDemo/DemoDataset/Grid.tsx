@@ -166,10 +166,10 @@ export const Grid = React.memo((props: GridProps) => {
         classId:
           rawClass?.id?.guid ||
           (rawClass?.id as unknown as string) ||
-          undefined,
+          "",
         gender: parseOptionSetValue(record, "ksvc_opt_gender"),
         birthday: rawBirthday ? new Date(rawBirthday) : null,
-        learningStatus: parseOptionSetValue(record, "ksvc_opt_learningstatus"),
+        learningStatus: parseOptionSetValue(record, "ksvc_opt_learningstatus") ? parseOptionSetValue(record, "ksvc_opt_learningstatus")! : 0,
         gpaScore: (record.getValue("ksvc_dcn_gpascore") as number) ?? 0,
         totalCredit: (record.getValue("ksvc_int_toltalcredit") as number) ?? 0,
       };

@@ -17,10 +17,10 @@ export interface StudentFormData {
   id?: string;
   studentCode?: string;
   fullName: string;
-  classId?: string;
+  classId: string;
   gender?: number;
   birthday?: Date | null;
-  learningStatus?: number;
+  learningStatus: number;
   gpaScore?: number;
   totalCredit?: number;
 }
@@ -70,10 +70,10 @@ export const StudentModal: React.FC<StudentModalProps> = ({
   const [formData, setFormData] = React.useState<StudentFormData>({
     fullName: "",
     studentCode: "",
-    classId: undefined,
+    classId: "",
     gender: undefined,
     birthday: null,
-    learningStatus: undefined,
+    learningStatus: 0,
     gpaScore: 0,
     totalCredit: 0,
   });
@@ -85,10 +85,10 @@ export const StudentModal: React.FC<StudentModalProps> = ({
       setFormData({
         fullName: "",
         studentCode: "",
-        classId: undefined,
+        classId: "",
         gender: undefined,
         birthday: null,
-        learningStatus: undefined,
+        learningStatus: 0,
         gpaScore: 0,
         totalCredit: 0,
       });
