@@ -1,58 +1,76 @@
-.SampleNamespace\.LinearInputControl input[type=range].linearslider {
-   margin: 1px 0;
-   background:transparent;
-   -webkit-appearance:none;
-   width:100%;padding:0;
-   height:24px;
-   -webkit-tap-highlight-color:transparent
+/* Container bao bọc */
+.custom-slider-container {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  box-sizing: border-box;
+  padding: 4px 0;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider:focus {
-   outline: none;
+
+/* Tùy biến thanh trượt Range */
+.custom-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 4px;
+  background: #e1dfdd;
+  outline: none;
+  transition: background 0.2s;
+  cursor: pointer;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider::-webkit-slider-runnable-track {
-   background: #666;
-   height:2px;
-   cursor:pointer
+
+.custom-slider:hover {
+  background: #c8c6c4;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider::-webkit-slider-thumb {
-   background: #666;
-   border:0 solid #f00;
-   height:24px;
-   width:10px;
-   border-radius:48px;
-   cursor:pointer;
-   opacity:1;
-   -webkit-appearance:none;
-   margin-top:-12px
+
+/* Nút trượt (Thumb) cho Chrome, Edge, Safari */
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #0078d4; /* Màu Fluent Primary Blue */
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider::-moz-range-track {
-   background: #666;
-   height:2px;
-   cursor:pointer
+
+.custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #106ebe;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider::-moz-range-thumb {
-   background: #666;
-   border:0 solid #f00;
-   height:24px;
-   width:10px;
-   border-radius:48px;
-   cursor:pointer;
-   opacity:1;
-   -webkit-appearance:none;
-   margin-top:-12px
+
+/* Nút trượt (Thumb) cho Firefox */
+.custom-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: #0078d4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider::-ms-track {
-   background: #666;
-   height:2px;
-   cursor:pointer
+
+.custom-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  background: #106ebe;
 }
-.SampleNamespace\.LinearInputControl input[type=range].linearslider::-ms-thumb {
-   background: #666;
-   border:0 solid #f00;
-   height:24px;
-   width:10px;
-   border-radius:48px;
-   cursor:pointer;
-   opacity:1;
-   -webkit-appearance:none;
+
+/* Huy hiệu hiển thị giá trị số (Badge) */
+.custom-slider-badge {
+  min-width: 44px;
+  padding: 3px 8px;
+  background-color: #f3f2f1;
+  border: 1px solid #edebe9;
+  border-radius: 4px;
+  color: #323130;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  user-select: none;
 }
